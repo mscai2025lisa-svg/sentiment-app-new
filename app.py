@@ -1,24 +1,13 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import torch
-
-MODEL_NAME = "distilbert-base-uncased-finetuned-sst-2-english"
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 app = FastAPI(title="Sentiment Analysis API")
 
 print("Loading model... this happens once at startup")
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForSequenceClassification.from_pretrained(
-    MODEL_NAME,
-    torch_dtype=torch.float32,
-    low_cpu_mem_usage=True
-)
-model.eval()
+analyzer = SentimentIntensityAnalyzer()
 print("Model loaded successfully!")
-
-LABELS = {0: "Negative", 1: "Positive"}
 
 
 class TextInput(BaseModel):
@@ -27,23 +16,20 @@ class TextInput(BaseModel):
 
 @app.post("/predict")
 def predict(input: TextInput):
-    inputs = tokenizer(
-        input.text,
-        return_tensors="pt",
-        truncation=True,
-        padding=True,
-        max_length=256,
-    )
-    with torch.no_grad():
-        outputs = model(**inputs)
-        probs = torch.softmax(outputs.logits, dim=-1)
-        pred_id = int(torch.argmax(probs, dim=-1))
-        confidence = float(probs[0][pred_id])
+    scores = analyzer.polarity_scores(input.text)
+    compound = scores["compound"]
+
+    if compound >= 0.05:
+        label = "Positive"
+    elif compound <= -0.05:
+        label = "Negative"
+    else:
+        label = "Neutral"
 
     return {
         "text": input.text,
-        "label": LABELS[pred_id],
-        "confidence": round(confidence, 4),
+        "label": label,
+        "confidence": round(abs(compound), 4)
     }
 
 
