@@ -10,7 +10,11 @@ app = FastAPI(title="Sentiment Analysis API")
 
 print("Loading model... this happens once at startup")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
+model = AutoModelForSequenceClassification.from_pretrained(
+    MODEL_NAME,
+    torch_dtype=torch.float32,
+    low_cpu_mem_usage=True
+)
 model.eval()
 print("Model loaded successfully!")
 
